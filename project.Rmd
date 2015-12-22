@@ -1,0 +1,123 @@
+---
+title: "Practical Machine Learning Course Project Report"
+---
+
+### Project Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal 
+activity relatively inexpensively. These type of devices are part of the quantified self movement ? a group of enthusiasts who 
+take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are 
+tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify 
+how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell 
+of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+The links for the training and test data are given below:
+
+* https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+* https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+```{r, echo = F, message = F, warning=F}
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(survival)
+
+```
+
+### Load data 
+
+First, load data and do some simply cleaning, such as unifying  "NA" strings, and remove the variables with all NAs. After that, slice 
+the "training" data further into a training and a testing sections.
+
+
+```{r, echo = F, message = F, warning=F}
+
+training <- read.csv("../pml-training.csv", row.names = 1,header = TRUE, na.strings = c("NA","","#DIV/0!"))
+testing <- read.csv("../pml-testing.csv", row.names = 1,header = TRUE, na.strings = c("NA","","#DIV/0!"))
+
+nas <- apply(training, 2, function(x) { sum(is.na(x)) })
+
+clean_training <- training[, which(nas == 0)]
+clean_testing <- testing[, which(nas == 0)]
+
+cat("Cleaned data sets dimensions:")
+
+dim(clean_training)
+dim(clean_testing)
+
+
+inTrain <- createDataPartition(clean_training$classe, p=0.7, list=F)
+
+train_model <- clean_training[inTrain,]
+train_valid <- clean_training[-inTrain,]
+
+
+
+```
+
+### Prediction Methods
+
+We will be comparing two different methods: random forest and boosting.
+
+#### 1. Random forests model   
+
+```{r, echo = F, message = F, warning=F}
+
+set.seed(1111)
+
+fit_rf <- train(classe ~ ., 
+               data=train_model,
+               method="rf",
+               trControl=trainControl(method="cv", number=4),
+               verbose=F)
+
+
+predict_model_rf <- predict(fit_rf, train_valid)
+accuracy_rf <- sum(predict_model_rf == train_valid$classe) / length(predict_model_rf)
+cat("Accuracy of random forest model: ", accuracy_rf)
+
+prediction_rf <- predict(fit_rf, clean_testing)
+
+
+```
+
+### 2. Boosting model
+
+```{r, echo = F, message = F, warning=F}
+
+set.seed(1111)
+
+fit_gbm <- train(classe ~ ., 
+               data=train_model,
+               method="gbm",
+               trControl=trainControl(method="cv", number=4),
+               verbose=F)
+
+
+predict_model_gbm <- predict(fit_gbm, train_valid)
+accuracy_gbm <- sum(predict_model_gbm == train_valid$classe) / length(predict_model_gbm)
+cat("Accuracy of boosting model: ", accuracy_gbm)
+
+prediction_gbm <- predict(fit_gbm, clean_testing)
+
+```
+                  
+
+### Final prediction   
+
+From the accuracy and plots comparison, the random forest model has a bit advantages over 
+the boosting model, albeit the execution time is significantly longer.      
+
+```{r prediction, message = F}
+
+
+plot(fit_rf)
+plot(fit_gbm)
+
+
+# Final model
+fit_rf$finalModel
+
+```
+
+
